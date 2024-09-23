@@ -104,51 +104,62 @@ Create a file called `install_docker.yml` with the following content:
 
 ```yaml
 ---
-- hosts: all
-  become: true
+- name: Install Docker and Docker Compose on remote machine
+  hosts: all
+  become: yes
+
   tasks:
+    - name: Ensure python3-dnf is installed (for RHEL/CentOS)
+      package:
+        name: python3-dnf
+        state: present
 
     - name: Add Docker repository
-      ansible.builtin.yum_repository:
-        name: docker-ce
-        description: Docker CE Stable - $basearch
-        baseurl: https://download.docker.com/linux/centos/$releasever/$basearch/stable
-        enabled: yes
+      yum_repository:
+        name: docker
+        description: Docker Repository
+        baseurl: https://download.docker.com/linux/centos/7/x86_64/stable/
         gpgcheck: yes
+        enabled: yes
         gpgkey: https://download.docker.com/linux/centos/gpg
 
-    - name: Install Docker and Docker Compose plugin
-      ansible.builtin.yum:
+    - name: Install Docker
+      yum:
         name:
           - docker-ce
           - docker-ce-cli
           - containerd.io
-          - docker-buildx-plugin
-          - docker-compose-plugin
-        state: present
+        state: latest
 
     - name: Start and enable Docker
-      ansible.builtin.systemd:
+      systemd:
         name: docker
-        enabled: true
+        enabled: yes
         state: started
 
     - name: Check Docker installation
-      ansible.builtin.command: docker --version
-      register: docker_version
+      command: docker version
 
     - name: Show Docker version
-      ansible.builtin.debug:
-        var: docker_version.stdout
+      command: docker --version
+
+    - name: Get Docker Compose binary name
+      command: "uname -s"
+      register: uname_s
+
+    - name: Get architecture
+      command: "uname -m"
+      register: uname_m
+
+    - name: Install Docker Compose
+      get_url:
+        url: "https://github.com/docker/compose/releases/latest/download/docker-compose-{{ uname_s.stdout }}-{{ uname_m.stdout }}"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
 
     - name: Check Docker Compose installation
-      ansible.builtin.command: docker-compose --version
-      register: compose_version
+      command: docker compose version
 
-    - name: Show Docker Compose version
-      ansible.builtin.debug:
-        var: compose_version.stdout
-```
 
 ### 2.3 Running the Ansible playbook
 
